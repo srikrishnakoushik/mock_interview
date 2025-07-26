@@ -222,14 +222,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "API endpoint for generating interview questions"
-    - "API endpoint for audio transcription"
-    - "API endpoint for answer evaluation"
     - "Job description input component"
     - "Question generation and display component"
     - "Audio/video recording interface"
+    - "Feedback and evaluation display"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
