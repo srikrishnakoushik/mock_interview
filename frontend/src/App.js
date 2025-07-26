@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import "./App.css";
 import axios from "axios";
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Text, Sphere, MeshDistortMaterial } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, Text, Sphere, MeshDistortMaterial, Box, Cylinder } from '@react-three/drei';
 import { motion } from 'framer-motion';
 import { useSpeechSynthesis } from 'react-speech-kit';
+import * as THREE from 'three';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
