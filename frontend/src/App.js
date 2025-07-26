@@ -272,17 +272,31 @@ const JobDescriptionInput = ({ onQuestionsGenerated }) => {
         <div className="bg-white rounded-2xl shadow-xl p-6">
           <div className="h-80 w-full">
             <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-              <ambientLight intensity={0.5} />
+              <ambientLight intensity={0.6} />
               <directionalLight position={[10, 10, 5]} intensity={1} />
-              <Suspense fallback={null}>
+              <pointLight position={[-10, -10, -5]} intensity={0.5} />
+              <Suspense fallback={<Loading3D />}>
                 <InterviewerAvatar isListening={false} isSpeaking={speaking} />
-                <OrbitControls enableZoom={false} enablePan={false} />
+                <OrbitControls 
+                  enableZoom={false} 
+                  enablePan={false} 
+                  maxPolarAngle={Math.PI / 2}
+                  minPolarAngle={Math.PI / 3}
+                />
               </Suspense>
             </Canvas>
           </div>
           <div className="text-center mt-4">
             <h3 className="text-xl font-bold text-gray-800">Meet Your AI Interviewer</h3>
             <p className="text-gray-600 mt-2">I'll help you practice for your interview with personalized questions and feedback.</p>
+            {speaking && (
+              <div className="mt-3 flex items-center justify-center text-blue-600">
+                <div className="animate-pulse w-2 h-2 bg-blue-600 rounded-full mr-1"></div>
+                <div className="animate-pulse w-2 h-2 bg-blue-600 rounded-full mr-1 delay-100"></div>
+                <div className="animate-pulse w-2 h-2 bg-blue-600 rounded-full delay-200"></div>
+                <span className="ml-2 text-sm">Speaking...</span>
+              </div>
+            )}
           </div>
         </div>
 
