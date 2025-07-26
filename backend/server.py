@@ -261,6 +261,11 @@ async def get_session(session_id: str):
         session = await db.interview_sessions.find_one({"id": session_id})
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Remove MongoDB ObjectId to make it JSON serializable
+        if "_id" in session:
+            del session["_id"]
+        
         return session
     except Exception as e:
         logging.error(f"Error fetching session: {str(e)}")
