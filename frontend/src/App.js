@@ -777,13 +777,22 @@ const FeedbackReport = ({ answers, onRestart }) => {
           <div className="bg-white rounded-2xl shadow-xl p-6">
             <div className="h-48 w-full">
               <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-                <ambientLight intensity={0.5} />
+                <ambientLight intensity={0.6} />
                 <directionalLight position={[10, 10, 5]} intensity={1} />
-                <Suspense fallback={null}>
+                <pointLight position={[-10, -10, -5]} intensity={0.5} />
+                <Suspense fallback={<Loading3D />}>
                   <InterviewerAvatar isListening={false} isSpeaking={false} />
-                  <OrbitControls enableZoom={false} enablePan={false} />
+                  <OrbitControls 
+                    enableZoom={false} 
+                    enablePan={false}
+                    maxPolarAngle={Math.PI / 2}
+                    minPolarAngle={Math.PI / 3}
+                  />
                 </Suspense>
               </Canvas>
+            </div>
+            <div className="text-center mt-3">
+              <p className="text-sm font-semibold text-green-700">Interview Complete! 🎉</p>
             </div>
           </div>
           <div className="bg-white rounded-2xl shadow-xl p-6 text-center">
