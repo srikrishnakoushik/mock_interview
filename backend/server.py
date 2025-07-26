@@ -14,6 +14,9 @@ import asyncio
 import tempfile
 import speech_recognition as sr
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+from gtts import gTTS
+import base64
+from io import BytesIO
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -74,10 +77,14 @@ class InterviewAnswer(BaseModel):
     evaluation: Optional[dict] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
+class VoiceRequest(BaseModel):
+    text: str
+    voice: str = "en"
+
 # Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Mock Interview API Ready"}
+    return {"message": "Enhanced Mock Interview API Ready"}
 
 @api_router.post("/questions", response_model=QuestionResponse)
 async def generate_questions(request: QuestionRequest):
@@ -253,6 +260,30 @@ async def evaluate_answer(request: EvaluationRequest):
     except Exception as e:
         logging.error(f"Error evaluating answer: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to evaluate answer: {str(e)}")
+
+@api_router.post("/voice-synthesis")
+async def synthesize_voice(request: VoiceRequest):
+    """Generate voice audio from text using TTS"""
+    try:
+        # Create TTS object
+        tts = gTTS(text=request.text, lang=request.voice, slow=False)
+        
+        # Save to BytesIO buffer
+        audio_buffer = BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_buffer.seek(0)
+        
+        # Convert to base64 for frontend
+        audio_base64 = base64.b64encode(audio_buffer.read()).decode('utf-8')
+        
+        return {
+            "audio_data": audio_base64,
+            "content_type": "audio/mpeg"
+        }
+        
+    except Exception as e:
+        logging.error(f"Error synthesizing voice: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to synthesize voice: {str(e)}")
 
 @api_router.get("/sessions/{session_id}")
 async def get_session(session_id: str):
