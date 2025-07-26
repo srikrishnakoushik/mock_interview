@@ -233,11 +233,7 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Job description input component"
-    - "Question generation and display component"
-    - "Audio/video recording interface"
-    - "Feedback and evaluation display"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
