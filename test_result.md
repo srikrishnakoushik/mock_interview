@@ -233,3 +233,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Completed initial implementation of full-stack mock interview application. Backend uses Gemini API (gemini-1.5-flash) via emergentintegrations library for question generation and answer evaluation. Speech recognition using Google Speech-to-Text. Frontend built with React and Tailwind CSS with responsive design. All core components implemented: job input, question display, recording interface, and feedback report. Ready for comprehensive testing of all endpoints and UI flows."
+  - agent: "testing"
+    message: "✅ BACKEND TESTING COMPLETED: All 4 backend endpoints tested and working correctly. Fixed 2 critical issues: (1) Installed missing FLAC dependency for audio transcription, (2) Fixed MongoDB ObjectId serialization issue in session management. All HIGH priority backend tasks now fully functional: POST /api/questions (Gemini question generation), POST /api/transcribe (audio processing), POST /api/evaluate (Gemini answer evaluation), and session management endpoints. Backend API ready for frontend integration. Full workflow tested successfully."
