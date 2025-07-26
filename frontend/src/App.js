@@ -608,16 +608,41 @@ const Recorder = ({ questionsData, onInterviewComplete }) => {
             <div className="bg-white rounded-2xl shadow-xl p-6">
               <div className="h-64 w-full">
                 <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-                  <ambientLight intensity={0.5} />
+                  <ambientLight intensity={0.6} />
                   <directionalLight position={[10, 10, 5]} intensity={1} />
-                  <Suspense fallback={null}>
+                  <pointLight position={[-10, -10, -5]} intensity={0.5} />
+                  <Suspense fallback={<Loading3D />}>
                     <InterviewerAvatar 
                       isListening={isRecording} 
                       isSpeaking={speaking || isProcessing} 
                     />
-                    <OrbitControls enableZoom={false} enablePan={false} />
+                    <OrbitControls 
+                      enableZoom={false} 
+                      enablePan={false}
+                      maxPolarAngle={Math.PI / 2}
+                      minPolarAngle={Math.PI / 3}
+                    />
                   </Suspense>
                 </Canvas>
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-sm font-semibold text-gray-700">
+                  Question {currentQuestionIndex + 1} of {questionsData.questions.length}
+                </p>
+                <div className="flex justify-center mt-2">
+                  {isRecording && (
+                    <div className="flex items-center text-red-600">
+                      <div className="animate-pulse w-2 h-2 bg-red-600 rounded-full mr-2"></div>
+                      <span className="text-xs">Recording...</span>
+                    </div>
+                  )}
+                  {(speaking || isProcessing) && (
+                    <div className="flex items-center text-blue-600">
+                      <div className="animate-spin w-3 h-3 border border-blue-600 border-t-transparent rounded-full mr-2"></div>
+                      <span className="text-xs">Processing...</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
