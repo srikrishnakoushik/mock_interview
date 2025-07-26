@@ -5,7 +5,6 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Sphere, MeshDistortMaterial, Box, Cylinder } from '@react-three/drei';
 import { motion } from 'framer-motion';
 import { useSpeechSynthesis } from 'react-speech-kit';
-import * as THREE from 'three';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -168,7 +167,6 @@ const InterviewerAvatar = ({ isListening, isSpeaking }) => {
         color="#1f2937"
         anchorX="center"
         anchorY="middle"
-        font="/fonts/arial.woff"
       >
         AI Interviewer
       </Text>
@@ -180,7 +178,6 @@ const InterviewerAvatar = ({ isListening, isSpeaking }) => {
         color={isSpeaking ? "#4f46e5" : isListening ? "#10b981" : "#6b7280"}
         anchorX="center"
         anchorY="middle"
-        font="/fonts/arial.woff"
       >
         {isSpeaking ? "🗣️ Speaking..." : isListening ? "👂 Listening..." : "🤖 Ready"}
       </Text>
