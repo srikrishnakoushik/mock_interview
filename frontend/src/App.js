@@ -10,28 +10,157 @@ import * as THREE from 'three';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// 3D Interviewer Avatar Component
+// Enhanced 3D Interviewer with Facial Expressions
+const AnimatedEye = ({ position, isBlinking, isListening, isSpeaking }) => {
+  const eyeRef = useRef();
+  
+  useFrame((state) => {
+    if (eyeRef.current) {
+      // Blinking animation
+      if (isBlinking) {
+        eyeRef.current.scale.y = 0.1;
+      } else {
+        eyeRef.current.scale.y = 1;
+      }
+      
+      // Eye movement based on speaking/listening
+      if (isSpeaking) {
+        eyeRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 8) * 0.1;
+      } else if (isListening) {
+        eyeRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 2) * 0.05;
+      }
+    }
+  });
+
+  return (
+    <Sphere 
+      ref={eyeRef} 
+      args={[0.08, 16, 16]} 
+      position={position}
+    >
+      <meshStandardMaterial 
+        color={isListening ? "#10b981" : isSpeaking ? "#4f46e5" : "#1f2937"} 
+      />
+    </Sphere>
+  );
+};
+
+const AnimatedMouth = ({ isSpeaking, isListening }) => {
+  const mouthRef = useRef();
+  
+  useFrame((state) => {
+    if (mouthRef.current) {
+      if (isSpeaking) {
+        // Mouth opening/closing animation while speaking
+        const scale = 1 + Math.sin(state.clock.elapsedTime * 10) * 0.3;
+        mouthRef.current.scale.x = scale;
+        mouthRef.current.scale.z = scale;
+      } else if (isListening) {
+        // Subtle mouth movement while listening
+        mouthRef.current.scale.x = 1 + Math.sin(state.clock.elapsedTime * 3) * 0.1;
+      } else {
+        mouthRef.current.scale.x = 1;
+        mouthRef.current.scale.z = 1;
+      }
+    }
+  });
+
+  return (
+    <Box 
+      ref={mouthRef}
+      args={[0.15, 0.05, 0.08]} 
+      position={[0, -0.1, 0.65]}
+    >
+      <meshStandardMaterial 
+        color={isSpeaking ? "#ef4444" : "#374151"} 
+      />
+    </Box>
+  );
+};
+
+// Enhanced 3D Interviewer Avatar Component with Expressions
 const InterviewerAvatar = ({ isListening, isSpeaking }) => {
-  const meshRef = useRef();
+  const headRef = useRef();
+  const [isBlinking, setIsBlinking] = useState(false);
+  
+  // Blinking animation
+  useEffect(() => {
+    const blinkInterval = setInterval(() => {
+      setIsBlinking(true);
+      setTimeout(() => setIsBlinking(false), 150);
+    }, 2000 + Math.random() * 3000);
+    
+    return () => clearInterval(blinkInterval);
+  }, []);
+
+  useFrame((state) => {
+    if (headRef.current) {
+      // Head bobbing animation
+      if (isSpeaking) {
+        headRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 4) * 0.1;
+        headRef.current.position.y = 0.5 + Math.sin(state.clock.elapsedTime * 6) * 0.02;
+      } else if (isListening) {
+        headRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 1) * 0.05;
+        headRef.current.position.y = 0.5 + Math.sin(state.clock.elapsedTime * 2) * 0.01;
+      }
+    }
+  });
   
   return (
     <group>
-      {/* Head */}
-      <Sphere ref={meshRef} args={[0.8, 32, 32]} position={[0, 0.5, 0]}>
-        <MeshDistortMaterial
-          color={isSpeaking ? "#4f46e5" : isListening ? "#10b981" : "#6b7280"}
-          attach="material"
-          distort={isSpeaking ? 0.6 : isListening ? 0.3 : 0.1}
-          speed={isSpeaking ? 8 : isListening ? 4 : 2}
+      {/* Head with expressions */}
+      <group ref={headRef}>
+        {/* Main head */}
+        <Sphere args={[0.8, 32, 32]} position={[0, 0.5, 0]}>
+          <MeshDistortMaterial
+            color={isSpeaking ? "#4f46e5" : isListening ? "#10b981" : "#6b7280"}
+            attach="material"
+            distort={isSpeaking ? 0.3 : isListening ? 0.15 : 0.05}
+            speed={isSpeaking ? 6 : isListening ? 3 : 1}
+          />
+        </Sphere>
+        
+        {/* Eyes */}
+        <AnimatedEye 
+          position={[-0.25, 0.65, 0.6]} 
+          isBlinking={isBlinking}
+          isListening={isListening}
+          isSpeaking={isSpeaking}
         />
-      </Sphere>
+        <AnimatedEye 
+          position={[0.25, 0.65, 0.6]} 
+          isBlinking={isBlinking}
+          isListening={isListening}
+          isSpeaking={isSpeaking}
+        />
+        
+        {/* Nose */}
+        <Box args={[0.05, 0.15, 0.1]} position={[0, 0.45, 0.7]}>
+          <meshStandardMaterial color="#4b5563" />
+        </Box>
+        
+        {/* Animated mouth */}
+        <AnimatedMouth isSpeaking={isSpeaking} isListening={isListening} />
+      </group>
       
-      {/* Body */}
-      <mesh position={[0, -0.8, 0]}>
-        <cylinderGeometry args={[0.6, 0.8, 1.2, 8]} />
+      {/* Professional suit body */}
+      <Cylinder args={[0.6, 0.8, 1.2, 8]} position={[0, -0.8, 0]}>
+        <meshStandardMaterial color="#1f2937" />
+      </Cylinder>
+      
+      {/* Tie */}
+      <Box args={[0.15, 0.8, 0.02]} position={[0, -0.5, 0.8]}>
+        <meshStandardMaterial color="#dc2626" />
+      </Box>
+      
+      {/* Arms */}
+      <Cylinder args={[0.12, 0.12, 0.8, 8]} position={[-0.7, -0.8, 0]} rotation={[0, 0, Math.PI / 6]}>
         <meshStandardMaterial color="#374151" />
-      </mesh>
-      
+      </Cylinder>
+      <Cylinder args={[0.12, 0.12, 0.8, 8]} position={[0.7, -0.8, 0]} rotation={[0, 0, -Math.PI / 6]}>
+        <meshStandardMaterial color="#374151" />
+      </Cylinder>
+
       {/* Professional label */}
       <Text
         position={[0, -2, 0]}
@@ -39,23 +168,72 @@ const InterviewerAvatar = ({ isListening, isSpeaking }) => {
         color="#1f2937"
         anchorX="center"
         anchorY="middle"
+        font="/fonts/arial.woff"
       >
         AI Interviewer
       </Text>
       
-      {/* Status indicator */}
+      {/* Dynamic status indicator */}
       <Text
         position={[0, 1.5, 0]}
         fontSize={0.15}
         color={isSpeaking ? "#4f46e5" : isListening ? "#10b981" : "#6b7280"}
         anchorX="center"
         anchorY="middle"
+        font="/fonts/arial.woff"
       >
-        {isSpeaking ? "Speaking..." : isListening ? "Listening..." : "Ready"}
+        {isSpeaking ? "🗣️ Speaking..." : isListening ? "👂 Listening..." : "🤖 Ready"}
       </Text>
+      
+      {/* Floating particles for effect */}
+      {(isSpeaking || isListening) && (
+        <>
+          {[...Array(5)].map((_, i) => (
+            <FloatingParticle key={i} index={i} active={isSpeaking || isListening} />
+          ))}
+        </>
+      )}
     </group>
   );
 };
+
+// Floating particles around avatar
+const FloatingParticle = ({ index, active }) => {
+  const particleRef = useRef();
+  
+  useFrame((state) => {
+    if (particleRef.current && active) {
+      const time = state.clock.elapsedTime + index;
+      particleRef.current.position.x = Math.sin(time * 2) * 2;
+      particleRef.current.position.y = Math.cos(time * 1.5) * 1.5 + 0.5;
+      particleRef.current.position.z = Math.sin(time * 1.2) * 1;
+      particleRef.current.rotation.x = time;
+      particleRef.current.rotation.y = time * 1.5;
+    }
+  });
+
+  return (
+    <Sphere ref={particleRef} args={[0.02, 8, 8]}>
+      <meshStandardMaterial 
+        color="#4f46e5" 
+        transparent 
+        opacity={0.6}
+        emissive="#4f46e5"
+        emissiveIntensity={0.2}
+      />
+    </Sphere>
+  );
+};
+
+// Loading component for 3D scene
+const Loading3D = () => (
+  <div className="flex items-center justify-center h-64 w-full">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading 3D Interviewer...</p>
+    </div>
+  </div>
+);
 
 // Enhanced JobDescriptionInput Component
 const JobDescriptionInput = ({ onQuestionsGenerated }) => {
