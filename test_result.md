@@ -107,15 +107,18 @@ user_problem_statement: "Create a full-stack mock interview application with job
 backend:
   - task: "API endpoint for generating interview questions"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented POST /api/questions endpoint using Gemini API (gemini-1.5-flash) with emergentintegrations library. Takes job description, generates 8-10 interview questions, creates session in MongoDB and returns questions with session_id."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED SUCCESSFULLY: POST /api/questions endpoint working correctly. Generated 10 questions from job description using Gemini API. Session created in MongoDB with UUID. Response format validated with proper questions array and session_id. Full workflow from job description to question generation confirmed working."
 
   - task: "API endpoint for audio transcription"
     implemented: true
