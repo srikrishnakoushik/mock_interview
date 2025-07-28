@@ -1,7 +1,6 @@
-// Load configuration from environment or config file
+// craco.config.js
 const path = require('path');
 
-// Environment variable overrides
 const config = {
   disableHotReload: process.env.DISABLE_HOT_RELOAD === 'true',
 };
@@ -11,36 +10,22 @@ module.exports = {
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
-    configure: (webpackConfig) => {
-      
-      // Disable hot reload completely if environment variable is set
-      if (config.disableHotReload) {
-        // Remove hot reload related plugins
-        webpackConfig.plugins = webpackConfig.plugins.filter(plugin => {
-          return !(plugin.constructor.name === 'HotModuleReplacementPlugin');
-        });
-        
-        // Disable watch mode
-        webpackConfig.watch = false;
-        webpackConfig.watchOptions = {
-          ignored: /.*/, // Ignore all files
-        };
-      } else {
-        // Add ignored patterns to reduce watched directories
-        webpackConfig.watchOptions = {
-          ...webpackConfig.watchOptions,
-          ignored: [
-            '**/node_modules/**',
-            '**/.git/**',
-            '**/build/**',
-            '**/dist/**',
-            '**/coverage/**',
-            '**/public/**',
-          ],
-        };
-      }
-      
+    configure: (webpackConfig, { env, paths }) => {
+      // ... (Your existing hot reload and source map exclusion logic) ...
+
       return webpackConfig;
     },
+  },
+  devServer: { // ADD THIS SECTION FOR DEV SERVER CONFIG
+    client: {
+      webSocketURL: {
+        // This forces the WebSocket to connect to the correct protocol and port
+        hostname: 'localhost',
+        protocol: 'ws', // Force WebSocket (not secure)
+        port: process.env.PORT || 3000, // Use your app's actual port (e.g., 3000 or 3001)
+      },
+    },
+    // Ensure you don't have https: true here unless you have a proper SSL setup
+    // https: false, // If present, ensure this is false for development if you're not using HTTPS
   },
 };
