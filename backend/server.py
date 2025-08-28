@@ -17,8 +17,8 @@ from gtts import gTTS
 import base64
 from io import BytesIO
 
-# NEW IMPORTS for Google Generative AI and pydub for audio processing
-import google.generativeai as genai
+# NEW IMPORTS for httpx and pydub
+import httpx # For asynchronous HTTP requests to OpenRouter
 from pydub import AudioSegment # For audio extraction from video files
 
 ROOT_DIR = Path(__file__).parent
@@ -35,16 +35,17 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# --- MODIFIED: API Key setup for Google Gemini ---
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-# Configure genai with your API key
-genai.configure(api_key=GEMINI_API_KEY)
+# --- MODIFIED: API Key setup for OpenRouter ---
+# OpenRouter API Key
+OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY') # Get this from openrouter.ai/keys
 
-GEMINI_MODEL_CHAT = os.environ.get('GEMINI_MODEL_CHAT', "gemini-1.5-flash")
-GEMINI_MODEL_EVAL = os.environ.get('GEMINI_MODEL_EVAL', "gemini-1.5-flash")
+# Define the models to use on OpenRouter (e.g., Google's Gemini models via OpenRouter)
+# Browse models at https://openrouter.ai/models
+OPENROUTER_MODEL_CHAT = os.environ.get('OPENROUTER_MODEL_CHAT', "google/gemini-flash-1.5")
+OPENROUTER_MODEL_EVAL = os.environ.get('OPENROUTER_MODEL_EVAL', "google/gemini-flash-1.5")
 # --- END MODIFIED ---
 
-# Data Models
+# Data Models (remain the same)
 class InterviewSession(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     job_description: str
@@ -90,36 +91,48 @@ class VoiceRequest(BaseModel):
     text: str
     voice: str = "en"
 
-# Helper function to send messages to Google Gemini API
-async def send_gemini_message(system_message: str, user_message_text: str, model_name: str) -> str:
-    if not GEMINI_API_KEY:
-        logging.error("GEMINI_API_KEY environment variable is not set.")
-        raise HTTPException(status_code=500, detail="Gemini API Key not configured.")
+# Helper function to send messages to OpenRouter (replaces direct Gemini/emergentintegrations)
+async def send_openrouter_message(system_message: str, user_message_text: str, model: str) -> str:
+    if not OPENROUTER_API_KEY:
+        logging.error("OPENROUTER_API_KEY environment variable is not set.")
+        raise HTTPException(status_code=500, detail="OpenRouter API Key not configured.")
 
-    try:
-        model = genai.GenerativeModel(model_name=model_name)
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message_text}
+        ]
+    }
 
-        chat_session = model.start_chat(history=[
-            {"role": "user", "parts": [system_message]},
-            {"role": "model", "parts": ["Understood."]}
-        ])
-
-        # Use asyncio.to_thread for blocking API calls to prevent blocking the event loop
-        response = await asyncio.to_thread(chat_session.send_message, user_message_text)
-
-        if response.text:
-            return response.text
-        else:
-            logging.error(f"Gemini API response missing text content. Response object: {response}")
-            raise HTTPException(status_code=500, detail="LLM response missing content.")
-
-    except Exception as e:
-        logging.error(f"Error communicating with Gemini API: {e}", exc_info=True)
-        if "API key not valid" in str(e):
-             raise HTTPException(status_code=401, detail="Gemini API key is invalid or expired.")
-        elif "quota" in str(e).lower() or "rate limit" in str(e).lower():
-             raise HTTPException(status_code=429, detail="Gemini API rate limit exceeded or quota reached.")
-        raise HTTPException(status_code=500, detail=f"Failed to get response from Gemini API: {str(e)}")
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=60.0) # Increased timeout
+            response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+            data = response.json()
+            if data and "choices" in data and len(data["choices"]) > 0:
+                return data["choices"][0]["message"]["content"]
+            else:
+                logging.error(f"OpenRouter response missing content or choices: {json.dumps(data, indent=2)}")
+                raise HTTPException(status_code=500, detail="LLM response missing content.")
+        except httpx.HTTPStatusError as e:
+            logging.error(f"HTTP error with OpenRouter ({e.response.status_code}): {e.response.text}", exc_info=True)
+            if e.response.status_code == 429: # Explicitly handle Too Many Requests
+                raise HTTPException(status_code=429, detail=f"LLM API rate limit exceeded. Please try again in a moment. Details: {e.response.text}")
+            raise HTTPException(status_code=e.response.status_code, detail=f"LLM API error: {e.response.text}")
+        except httpx.RequestError as e:
+            logging.error(f"Network error with OpenRouter: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"LLM API network error: {e}")
+        except json.JSONDecodeError:
+            logging.error(f"Failed to decode OpenRouter JSON response: {response.text}", exc_info=True)
+            raise HTTPException(status_code=500, detail="LLM API returned invalid JSON.")
+        except Exception as e:
+            logging.error(f"Unexpected error in send_openrouter_message: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Unexpected LLM API error: {e}")
 
 
 # Routes
@@ -129,11 +142,11 @@ async def root():
 
 @api_router.post("/questions", response_model=QuestionResponse)
 async def generate_questions(request: QuestionRequest):
-    """Generate interview questions based on job description using Gemini"""
+    """Generate interview questions based on job description using OpenRouter"""
     try:
         system_message = "You are an expert HR interviewer. Generate thoughtful, relevant interview questions based on the job description provided. Ensure your response is ONLY a JSON array of strings, with no other text, markdown fences, or formatting outside the JSON array."
         prompt = f"""
-        Based on the following job description, generate 8-10 diverse interview questions that would effectively assess a candidate's suitability for this role.
+        Based on the following job description, generate 3 diverse interview questions that would effectively assess a candidate's suitability for this role.
 
         Job Description:
         {request.job_description}
@@ -147,7 +160,7 @@ async def generate_questions(request: QuestionRequest):
 
         Return ONLY the questions as a JSON array of strings, without any extra text, introductions, conclusions, or markdown code blocks (e.g., no ```json ```).
         """
-        response_content = await send_gemini_message(system_message, prompt, GEMINI_MODEL_CHAT)
+        response_content = await send_openrouter_message(system_message, prompt, OPENROUTER_MODEL_CHAT)
 
         # Parse the response to extract questions (robust parsing)
         try:
@@ -203,61 +216,60 @@ async def generate_questions(request: QuestionRequest):
         logging.error(f"Error generating questions: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to generate questions: {str(e)}")
 
+# --- FIX START: Reworked /transcribe endpoint for in-memory processing ---
 @api_router.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...), session_id: str = None, question_index: int = None):
-    """Transcribe uploaded audio/video file"""
+    """Transcribe uploaded audio/video file by converting to WAV in-memory"""
+    uploaded_file_path = None
     try:
-        file_extension = Path(file.filename).suffix.lower()
-        if file_extension not in ('.wav', '.mp3', '.m4a', '.ogg', '.webm', '.mp4'):
-            raise HTTPException(status_code=400, detail="Unsupported file format")
+        # Save the uploaded file to a temporary location first, as pydub needs a path
+        uploaded_file_path = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix).name
+        with open(uploaded_file_path, "wb") as temp_file:
+            temp_file.write(await file.read())
 
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-            content = await file.read()
-            temp_file.write(content)
-            temp_file_path = temp_file.name
-
-        audio_file_path = temp_file_path # Assume it's audio initially
-        cleanup_audio_file = False # Flag to delete temporary extracted audio
-
-        try:
-            # If it's a video file, extract audio using pydub
-            if file_extension in ('.webm', '.mp4'):
-                # pydub.AudioSegment.from_file is a blocking call, run in a separate thread
-                audio_segment = await asyncio.to_thread(AudioSegment.from_file, temp_file_path)
-
-                # Export to a WAV file for speech_recognition (also blocking)
-                audio_file_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
-                await asyncio.to_thread(audio_segment.export, audio_file_path, format="wav")
-                cleanup_audio_file = True # Mark for deletion
-
-            r = sr.Recognizer()
-            with sr.AudioFile(audio_file_path) as source:
-                audio = r.record(source)
-                # recognize_google is a blocking call, run in a separate thread
-                transcript = await asyncio.to_thread(r.recognize_google, audio)
-
-        except sr.UnknownValueError:
-            transcript = "Could not understand the audio. Please speak clearly and try again."
-        except sr.RequestError as e:
-            transcript = f"Could not request results from speech recognition service: {str(e)}"
-        except Exception as e: # Catch other errors like pydub/ffmpeg issues
-            logging.error(f"Error during audio processing/transcription: {str(e)}", exc_info=True)
-            transcript = f"An internal error occurred during audio processing: {str(e)}"
-        finally:
-            os.unlink(temp_file_path) # Original uploaded file
-            if cleanup_audio_file and os.path.exists(audio_file_path):
-                os.unlink(audio_file_path) # Extracted audio file
-            
-        return {"transcript": transcript}
+        # Use pydub to load and convert the audio to an in-memory buffer
+        audio_segment = await asyncio.to_thread(AudioSegment.from_file, uploaded_file_path)
         
+        wav_buffer = BytesIO()
+        await asyncio.to_thread(audio_segment.export, wav_buffer, format="wav")
+        wav_buffer.seek(0)
+
+        # Now, use the speech_recognition library with the in-memory buffer
+        r = sr.Recognizer()
+        with sr.AudioFile(wav_buffer) as source:
+            audio = r.record(source)
+            transcript = await asyncio.to_thread(r.recognize_google, audio)
+
+        return {"transcript": transcript}
+
+    except AudioSegment.ffmpeg.FFmpegError as ffmpeg_e:
+        logging.error(f"FFmpeg error during audio processing: {ffmpeg_e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"An internal error occurred during audio processing: Decoding failed. This might be due to a corrupted or unsupported file format."
+        )
+    except sr.UnknownValueError:
+        transcript = "Could not understand the audio. Please speak clearly and try again."
+        return {"transcript": transcript}
+    except sr.RequestError as e:
+        transcript = f"Could not request results from speech recognition service: {str(e)}"
+        return {"transcript": transcript}
     except Exception as e:
-        logging.error(f"Error handling transcription request: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to transcribe audio: {str(e)}")
+        logging.error(f"Error during audio processing/transcription: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"An internal error occurred during audio processing: {str(e)}. This might be due to a corrupted file or a misconfigured backend."
+        )
+    finally:
+        # Ensure the original temporary file is always deleted
+        if uploaded_file_path and os.path.exists(uploaded_file_path):
+            os.unlink(uploaded_file_path)
+# --- FIX END ---
+
 
 @api_router.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate_answer(request: EvaluationRequest):
-    """Evaluate interview answer using Gemini"""
+    """Evaluate interview answer using OpenRouter"""
     try:
         # NEW: Fetch job_description from the stored session
         session = await db.interview_sessions.find_one({"id": request.session_id})
@@ -293,7 +305,7 @@ async def evaluate_answer(request: EvaluationRequest):
         }}
         No other text, introduction, conclusion, or markdown code blocks outside the JSON object.
         """
-        response_content = await send_gemini_message(system_message, prompt, GEMINI_MODEL_EVAL)
+        response_content = await send_openrouter_message(system_message, prompt, OPENROUTER_MODEL_EVAL)
 
         try:
             # Clean possible markdown code blocks from LLM response
@@ -394,8 +406,8 @@ app.add_middleware(
         "http://localhost:3001",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
-        # If you deploy your frontend, add its production URL here.
-        # Remove this line if it's your backend's external URL, it doesn't belong here.
+        # If your frontend is also deployed to emergentagent.com, add its exact URL here.
+        # Otherwise, remove this line as it's your backend's external URL, it doesn't belong here.
         # "https://93641251-8069-4475-8351-bae4f17bad72.preview.emergentagent.com",
         "http://localhost",
         "https://localhost"
